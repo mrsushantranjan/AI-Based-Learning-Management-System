@@ -19,9 +19,13 @@ builder.Services.AddScoped<GeminiService>();
 builder.Services.AddScoped<ProgressService>();
 
 // JWT Authentication
-var jwtKey = builder.Configuration["Jwt:Key"]
-    ?? Environment.GetEnvironmentVariable("JWT_SECRET")
-    ?? "Learnova_AI_LMS_Secure_JWT_Key_2026_Enterprise_Edition_256Bits!";
+var configJwtKey = builder.Configuration["Jwt:Key"];
+var envJwtKey = Environment.GetEnvironmentVariable("JWT_SECRET") ?? Environment.GetEnvironmentVariable("Jwt__Key");
+var jwtKey = !string.IsNullOrWhiteSpace(envJwtKey)
+    ? envJwtKey
+    : (!string.IsNullOrWhiteSpace(configJwtKey)
+        ? configJwtKey
+        : "Learnova_AI_LMS_Secure_JWT_Key_2026_Enterprise_Edition_256Bits!");
 
 builder.Services.AddAuthentication(options =>
 {
@@ -87,12 +91,39 @@ builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
+// Global Exception Diagnostics Handler (Never silent 500)
+app.UseExceptionHandler(errorApp =>
+{
+    errorApp.Run(async context =>
+    {
+        context.Response.StatusCode = 500;
+        context.Response.ContentType = "application/json";
+        var feature = context.Features.Get<Microsoft.AspNetCore.Diagnostics.IExceptionHandlerPathFeature>();
+        var ex = feature?.Error;
+        await context.Response.WriteAsJsonAsync(new
+        {
+            error = "Server Exception",
+            message = ex?.Message,
+            type = ex?.GetType().Name
+        });
+    });
+});
+
 // Forwarded headers for reverse proxies (Render, Railway, Docker, Cloudflare)
 app.UseForwardedHeaders(new ForwardedHeadersOptions
 {
     ForwardedHeaders = Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedFor |
                        Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedProto
 });
+
+// Production Health Check Endpoint (Early in pipeline to always succeed independently)
+app.MapGet("/health", () => Results.Ok(new
+{
+    status = "healthy",
+    service = "AI-LMS.API",
+    runtime = ".NET 10.0",
+    timestamp = DateTime.UtcNow
+}));
 
 if (app.Environment.IsDevelopment())
 {
@@ -105,15 +136,6 @@ app.UseCors("AllowFrontend");
 app.UseAuthentication();
 app.UseAuthorization();
 
-// Production Health Check Endpoints
-app.MapGet("/health", () => Results.Ok(new
-{
-    status = "healthy",
-    service = "AI-LMS.API",
-    runtime = ".NET 10.0",
-    timestamp = DateTime.UtcNow
-}));
-
 app.MapGet("/api/health", (MongoDbContext db) => Results.Ok(new
 {
     status = "healthy",
@@ -124,11 +146,18 @@ app.MapGet("/api/health", (MongoDbContext db) => Results.Ok(new
 
 app.MapControllers();
 
-// Database Seeding (Guarded to prevent data overwrites)
+// Database Seeding (Guarded to avoid killing the container if Atlas is still connecting)
 var enableSeeding = builder.Configuration.GetValue<bool>("SeedDatabase", true);
 if (enableSeeding)
 {
-    await DbSeeder.SeedDatabaseAsync(app);
+    try
+    {
+        await DbSeeder.SeedDatabaseAsync(app);
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"[Startup Warning] Database seeding skipped or encountered error: {ex.Message}");
+    }
 }
 
 app.Run();
