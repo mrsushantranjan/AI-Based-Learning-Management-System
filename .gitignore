@@ -1,0 +1,25 @@
+.DS_Store
+.env
+.env.*
+!.env.example
+secrets.json
+node_modules/
+dist/
+bin/
+obj/
+.vscode/
+.idea/
+*.bson
+*.dump
+dump/
+
+# Local ASP.NET Core settings and user secrets
+**/appsettings.Development.json
+**/secrets.json
+**/secrets.*.json
+
+# Python temporary files
+__pycache__/
+*.pyc
+.venv/
+venv/
