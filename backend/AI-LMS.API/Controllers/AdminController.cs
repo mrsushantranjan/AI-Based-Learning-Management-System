@@ -174,8 +174,8 @@ public class AdminController : ControllerBase
         {
             database = _context.DatabaseName,
             status = "Connected",
-            engine = "MongoDB v7.0 / v8.0",
-            connectionUri = "mongodb://localhost:27017",
+            engine = _context.MaskedConnectionString.Contains("mongodb.net") ? "MongoDB Atlas (Cloud Cluster)" : "MongoDB v7.0 / v8.0",
+            connectionUri = _context.MaskedConnectionString,
             totalCollections = collectionNames.Count,
             collections = collectionsInfo
         });

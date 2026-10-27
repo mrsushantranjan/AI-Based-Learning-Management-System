@@ -242,10 +242,9 @@ public static class DbSeeder
         }
         else
         {
-            // Idempotent: ensure User has correct Name & Role & Password
+            // Idempotent: preserve existing user password, ensure Name & Role
             var userUpdate = Builders<User>.Update
                 .Set(u => u.Name, name)
-                .Set(u => u.PasswordHash, BCrypt.Net.BCrypt.HashPassword(password))
                 .Set(u => u.Role, "Faculty");
             await context.Users.UpdateOneAsync(u => u.Id == existing.Id, userUpdate);
 
