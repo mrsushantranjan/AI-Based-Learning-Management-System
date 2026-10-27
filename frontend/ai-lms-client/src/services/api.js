@@ -1,7 +1,11 @@
 import axios from "axios";
 
+const defaultApiUrl = import.meta.env.PROD
+  ? "https://ai-based-learning-management-system-66iq.onrender.com/api"
+  : "http://localhost:5291/api";
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "http://localhost:5291/api",
+  baseURL: import.meta.env.VITE_API_URL || defaultApiUrl,
   headers: {
     "Content-Type": "application/json",
   },

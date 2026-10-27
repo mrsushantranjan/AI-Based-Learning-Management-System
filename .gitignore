@@ -2,6 +2,7 @@
 .env
 .env.*
 !.env.example
+!.env.production
 secrets.json
 node_modules/
 dist/
